@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<table xmlns="http://query.yahooapis.com/v1/schema/table.xsd">
+  <meta>
+    <sampleQuery>select * from {table} where source="training" or source="tutorial"</sampleQuery>
+  </meta>
+  <bindings>
+    <select itemPath="" produces="XML">
+      <urls>
+        <url></url>
+      </urls>
+      <inputs>
+        <!--<key id="source" type="xs:string" paramType="variable" required="true" batchable="true" maxBatchItems="100" />-->
+      </inputs>
+      <execute>
+      <![CDATA[
+        y.include("http://lisa.dachev.com/events/css2xpath.js");
+        y.include("http://lisa.dachev.com/events/date.js");
+        y.include("http://lisa.dachev.com/events/querystring.js");
+        y.include("http://lisa.dachev.com/events/url.js");
+        y.include("http://lisa.dachev.com/events/table.js");
+      ]]>
+      </execute>
+    </select>
+  </bindings>
+</table>
