@@ -4,16 +4,95 @@ Date.prototype.isDaylightSavingTime = function() {
 }
 
 // adjust time to CST or CDT
-Date.prototype.fixOffset = function() {
-    var tzOffset = this.isDaylightSavingTime() ? '-500' : '-600';
+Date.prototype.toUofMTime = function() {
+    //var tzOffset = this.isDaylightSavingTime() ? '-500' : '-600';
+    //this.setTimezoneOffset(tzOffset);
     
-    this.setTimezoneOffset(tzOffset);
+    var tOffset = this.isDaylightSavingTime() ? 300 : 360;
+    var lOffset = this.getTimezoneOffset();
+    
+    this.addMinutes(tOffset - lOffset);
     
     return this;
 }
 
+// self explanatory
+String.prototype.prepend = function(token) {
+    return token + this;
+}
+
+// self explanatory
+String.prototype.append = function(token) {
+    return this + token;
+}
+
+// removes leading and trailing whitespace from a string
+String.prototype.trim = function() {
+    return this.replace(/^[\s]*/,'').replace(/[\s]*$/,'');  
+}
+
+// self explanatory
+String.prototype.toAbsoluteURL = function(base) {
+    var aUrl = '';
+  
+    try {
+        var bUrl = Url.parse(base);
+        var hUrl = Url.parse(this);
+        var aUrl = Url.resolve(bUrl, hUrl);
+    } catch(e) {;}
+    
+    return aUrl;
+}
+
+// self explanatory
+Array.prototype.inArray = function (value) {
+	var i;
+	for (i=0; i < this.length; i++) {
+		if (this[i] === value) {
+			return true;
+		}
+	}
+	return false;
+};
+
+// create an object from array
+Array.prototype.getObject = function (v) {
+    var o = {};
+    
+    for (var i = 0; i < this.length; i++) {
+        o[this[i]] = v;
+    }
+    
+    return o;
+}
+
+// check if an XML element has an HTML class name
+var spaceRe = /\s+/;
+function hasClass(el, name) {
+    var list = el.@['class'].toString().split(spaceRe);
+    var hash = list.getObject(true);
+    
+    return name in hash;
+};
+
+// extracts the text content of an XML element
+function stringValue(node) {
+    var value = "";
+  
+    if (node.hasSimpleContent()) {
+        value = node.toString();
+    }
+    else {
+        for each (var c in node.children()) {
+            value += stringValue(c);
+        }
+    }
+  
+    return value.trim();
+}
+
 // source parser
-function procTraining(url, xml) {
+function procTraining(baseUrl, xml) {
     var pairs = [];
     
     var dl = y.xpath(xml, '//div[contains(h3, "Upcoming")]')..dl;
@@ -33,14 +112,14 @@ function procTraining(url, xml) {
         }
     }
   
-    var today     = Date.today();
+    var today     = Date.today().toUofMTime();
     var events    = [];
     var dtRangeRe = /(.+[0-9]{4}),\s*(.+)\s*-\s*(.+)/;
     
     for (var i = 0; i < pairs.length; i++) {
         var pair  = pairs[i];
         var text  = stringValue(pair['dt']);
-        var href  = makeAbsURL(url, pair['dt']..a.@href);
+        var href  = pair['dt']..a.@href.toString().toAbsoluteURL(baseUrl);
         var dates = stringValue(pair['dd']);
     
         if (!text || !href || !dates) { continue; }
@@ -58,9 +137,9 @@ function procTraining(url, xml) {
         // make sure we've got the dates
         if (!bdate || !btime || !etime) { continue; }
         
-        bdate.fixOffset();
-        btime.fixOffset();
-        etime.fixOffset();
+        bdate.toUofMTime();
+        btime.toUofMTime();
+        etime.toUofMTime();
         
         if (bdate.isBefore(today)) { continue; }
         if (btime.isBefore(today)) { continue; }
@@ -83,7 +162,7 @@ function procTraining(url, xml) {
 }
 
 // source parser
-function procTutorials(url, xml) {
+function procTutorials(baseUrl, xml) {
     var tuples = [];
     
     var trs = y.xpath(xml, '//tr');
@@ -103,7 +182,7 @@ function procTutorials(url, xml) {
             }
             else if (cnt == 2) {
                 tuple['title'] = stringValue(td);
-                tuple['href']  = makeAbsURL(url, td..a.@href);
+                tuple['href']  = td..a.@href.toString().toAbsoluteURL(baseUrl);
             }
             else {
                 tuples.push(tuple);
@@ -114,9 +193,9 @@ function procTutorials(url, xml) {
         }
     }
     
-    var today       = Date.today().fixOffset();
-    var events      = [];
-    var timeRangeRe = /(.+)\s*-\s*(.+)/;
+    var today     = Date.today().toUofMTime();
+    var events    = [];
+    var tmRangeRe = /(.+)\s*-\s*(.+)/;
     
     for (var i = 0; i < tuples.length; i++) {
         var tuple = tuples[i];
@@ -128,7 +207,7 @@ function procTutorials(url, xml) {
         // extract dates
         var bdate = Date.parse(tuple['date'] + ', 00:00:00');
         var btime, etime, matches;
-        if ((matches = timeRangeRe.exec(tuple['time'])) && matches.length == 3) {
+        if ((matches = tmRangeRe.exec(tuple['time'])) && matches.length == 3) {
             btime = Date.parse(tuple['date'] + ', ' + matches[1]);
             etime = Date.parse(tuple['date'] + ', ' + matches[2]);
         }
@@ -136,9 +215,9 @@ function procTutorials(url, xml) {
         // make sure we've got the dates
         if (!bdate || !btime || !etime) { continue; }
         
-        bdate.fixOffset();
-        btime.fixOffset();
-        etime.fixOffset();
+        bdate.toUofMTime();
+        btime.toUofMTime();
+        etime.toUofMTime();
         
         if (bdate.isBefore(today)) { continue; }
         if (btime.isBefore(today)) { continue; }
@@ -160,6 +239,67 @@ function procTutorials(url, xml) {
     return events;
 }
 
+// source parser
+function procLibrary(baseUrl, xml) {
+    var today     = Date.today().toUofMTime();
+    var dtRangeRe = /(.?[0-9]{1,2}\/[0-9]{1,2}\/[0-9]{2,4})\s?-\s?(.+)\s?-\s?(.+)/;
+    var topic     = '';
+    var events    = [];
+    
+    var divs = y.xpath(xml, '/results/div/div');
+    for each (var div in divs) {
+        var isHeader = hasClass(div, 'desc_header');
+        var isEvent  = hasClass(div, 'views-row');
+        
+        if (isHeader) {
+            topic = y.xpath(div, '//h3/a').@name.toString().trim();
+        }
+        else if (isEvent) {
+            if (!topic) { continue; }
+            
+             var href   = topic.toString().prepend('#').toAbsoluteURL(baseUrl);
+             var dates  = stringValue(y.xpath(div, CSS2XPATH('.date-display-single')));
+    
+             if (!href || !dates) { continue; }
+        
+            // extract dates
+            var bdate, btime, etime, matches;
+            if ((matches = dtRangeRe.exec(dates)) && matches.length == 4) {
+                btime = Date.parse(matches[1] + ', ' + matches[2]);
+                etime = Date.parse(matches[1] + ', ' + matches[3]);
+            }
+            if (btime) {
+                bdate = btime.clone().clearTime();
+            }
+    
+            // make sure we've got the dates
+            if (!bdate || !btime || !etime) { continue; }
+        
+            bdate.toUofMTime();
+            btime.toUofMTime();
+            etime.toUofMTime();
+            
+            if (bdate.isBefore(today)) { continue; }
+            if (btime.isBefore(today)) { continue; }
+            if (btime.isAfter(etime))  { continue; }
+        
+            // create response object
+            var item = {
+                type  : 'library',
+                title : topic,
+                href  : href,
+                btime : btime.getTime() + '',
+                etime : etime.getTime() + '',
+                bdate : bdate.getTime() + ''
+            };
+        
+            events.push(item);
+        }
+    }
+    
+    return events;
+}
+
 // creates a sorted array combining the resuls from all sources
 function mergeEvents(responses) {
 	var events = [];
@@ -167,8 +307,8 @@ function mergeEvents(responses) {
     for (var type in responses) {
     	var response = responses[type];
     	
-        for (var idx in response) {
-            var event = response[idx];
+        for (var i = 0; i < response.length; i++) {
+            var event = response[i];
             
             events.push(event);
         }
@@ -184,42 +324,10 @@ function mergeEvents(responses) {
     return events;
 }
 
-// the function signature says it all
-function makeAbsURL(base, href) {
-    var aUrl = '';
-  
-    try {
-        var bUrl = Url.parse(base);
-        var hUrl = Url.parse(href);
-        var aUrl = Url.resolve(bUrl, hUrl);
-    } catch(e) {;}
-    
-    return aUrl;
-}
-
-// extracts the text content of an XML element
-function stringValue(node) {
-    var value = "";
-  
-    if (node.hasSimpleContent()) {
-        value = node.toString();
-    }
-    else {
-        for each (var c in node.children()) {
-            value += stringValue(c);
-        }
-    }
-  
-    return trim(value);
-}
-
-// removes leading and trailing whitespace from a string
-function trim(str) {
-    return str.replace(/^[\s]*/,'').replace(/[\s]*$/,'');  
-}
-
 // main function
 function main(config) {
+    XML.ignoreWhitespace = false;
+    
     var responses = {};
 
     for (var name in config) {
@@ -243,9 +351,14 @@ var config = {
         proc  : procTraining
     },
     tutorial : {
-        url   : 'https://www.msi.umn.edu/tutorial/',
+        url   : 'https://www.msi.umn.edu/tutorial',
         xpath : CSS2XPATH('#mainContent div.tut table'),
         proc  : procTutorials
+    },
+    library : {
+        url   : 'http://www.lib.umn.edu/services/workshops/registration',
+        xpath : CSS2XPATH('#content-area > .view > .view-content'),
+        proc  : procLibrary
     }
 };
 
