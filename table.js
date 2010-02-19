@@ -3,6 +3,15 @@ Date.prototype.isDaylightSavingTime = function() {
     return Date.today().set({month: 0, day: 1}).getTimezoneOffset() != this.getTimezoneOffset();
 }
 
+// adjust time to CST or CDT
+Date.prototype.fixOffset = function() {
+    var tzOffset = this.isDaylightSavingTime() ? '-500' : '-600';
+    
+    this.setTimezoneOffset(tzOffset);
+    
+    return this;
+}
+
 // source parser
 function procTraining(url, xml) {
     var pairs = [];
@@ -39,8 +48,8 @@ function procTraining(url, xml) {
         // extract dates
         var bdate, btime, etime, matches;
         if ((matches = dtRangeRe.exec(dates)) && matches.length == 4) {
-            btime = Date.parse(matches[1] + ', ' + matches[2] + ' GMT-600');
-            etime = Date.parse(matches[1] + ', ' + matches[3] + ' GMT-600');
+            btime = Date.parse(matches[1] + ', ' + matches[2]);
+            etime = Date.parse(matches[1] + ', ' + matches[3]);
         }
         if (btime) {
             bdate = btime.clone().clearTime();
@@ -48,20 +57,14 @@ function procTraining(url, xml) {
     
         // make sure we've got the dates
         if (!bdate || !btime || !etime) { continue; }
+        
+        bdate.fixOffset();
+        btime.fixOffset();
+        etime.fixOffset();
+        
         if (bdate.isBefore(today)) { continue; }
         if (btime.isBefore(today)) { continue; }
-        if (btime.isAfter(etime)) { continue; }
-        
-        // adjust for daylight saving
-        if (bdate.isDaylightSavingTime()) {
-            bdate.addHours(-1);
-        }
-        if (btime.isDaylightSavingTime()) {
-            btime.addHours(-1);
-        }
-        if (etime.isDaylightSavingTime()) {
-            etime.addHours(-1);
-        }
+        if (btime.isAfter(etime))  { continue; }
         
         // create response object
         var item = {
@@ -111,7 +114,7 @@ function procTutorials(url, xml) {
         }
     }
     
-    var today       = Date.today();
+    var today       = Date.today().fixOffset();
     var events      = [];
     var timeRangeRe = /(.+)\s*-\s*(.+)/;
     
@@ -123,29 +126,23 @@ function procTutorials(url, xml) {
         }
         
         // extract dates
-        var bdate = Date.parse(tuple['date'] + ', 00:00:00 GMT-600');
+        var bdate = Date.parse(tuple['date'] + ', 00:00:00');
         var btime, etime, matches;
         if ((matches = timeRangeRe.exec(tuple['time'])) && matches.length == 3) {
-            btime = Date.parse(tuple['date'] + ', ' + matches[1] + ' GMT-600');
-            etime = Date.parse(tuple['date'] + ', ' + matches[2] + ' GMT-600');
+            btime = Date.parse(tuple['date'] + ', ' + matches[1]);
+            etime = Date.parse(tuple['date'] + ', ' + matches[2]);
         }
         
         // make sure we've got the dates
         if (!bdate || !btime || !etime) { continue; }
+        
+        bdate.fixOffset();
+        btime.fixOffset();
+        etime.fixOffset();
+        
         if (bdate.isBefore(today)) { continue; }
         if (btime.isBefore(today)) { continue; }
-        if (btime.isAfter(etime)) { continue; }
-        
-        // adjust for daylight saving
-        if (bdate.isDaylightSavingTime()) {
-            bdate.addHours(-1);
-        }
-        if (btime.isDaylightSavingTime()) {
-            btime.addHours(-1);
-        }
-        if (etime.isDaylightSavingTime()) {
-            etime.addHours(-1);
-        }
+        if (btime.isAfter(etime))  { continue; }
         
         // create response object
         var item = {
