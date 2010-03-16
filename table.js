@@ -253,8 +253,14 @@ function procLibrary(baseUrl, xml) {
         
         if (isHeader) {
             topic = y.xpath(div, '//h3/a').@name.toString().trim();
+            continue;
         }
-        else if (isEvent) {
+        
+        if (topic.match(/unravel the library/i)) {
+            continue;
+        }
+        
+        if (isEvent) {
             if (!topic) { continue; }
             
              var href   = topic.toString().prepend('#').toAbsoluteURL(baseUrl);
